@@ -38,6 +38,12 @@
 #include <nuttx/video/rgbcolors.h>
 
 #include <nuttx/leds/ws2812.h>
+#ifndef CONFIG_WS2812
+static inline uint32_t ws2812_gamma_correct(uint32_t pixel)
+{
+  return pixel;
+}
+#endif
 
 #ifdef CONFIG_GAMES_SNAKE_USE_CONSOLEKEY
 #include "snake_input_console.h"
@@ -108,7 +114,7 @@ struct game_item food =
 
 /* Game board to show */
 
-uint32_t board[BOARDX_SIZE][BOARDY_SIZE] =
+static uint32_t board[BOARDX_SIZE][BOARDY_SIZE] =
 {
   0
 };

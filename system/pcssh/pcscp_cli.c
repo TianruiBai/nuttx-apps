@@ -349,7 +349,7 @@ static int scp_upload_wolfssh(struct scp_ctx_s *ctx)
 
   char hdr[512];
   snprintf(hdr, sizeof(hdr), "C0644 %ld %s\n", (long)fsize, basename);
-  wolfSSH_stream_send(ctx->ssh, (const uint8_t *)hdr, strlen(hdr));
+  wolfSSH_stream_send(ctx->ssh, (uint8_t *)hdr, strlen(hdr));
 
   /* Send file data */
 

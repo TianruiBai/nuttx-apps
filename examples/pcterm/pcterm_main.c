@@ -4,9 +4,9 @@
  * PicoCalc-Term OS entry point — full bootstrap with splash animation.
  *
  * Boot sequence:
- *   1. Mount SD card
- *   2. Load hostname
- *   3. Load settings
+ *   1. Mount SD card (/mnt/sd) — optional, media only
+ *   2. Load hostname (from /flash/etc/hostname)
+ *   3. Load settings (from /flash/etc/settings.json)
  *   4. Initialize LVGL (display + keyboard drivers)
  *   5. Show boot splash animation
  *   6. Create status bar
@@ -14,6 +14,12 @@
  *   8. Initialize package manager (scan SD for third-party apps)
  *   9. Hide splash, launch home screen (launcher)
  *  10. Enter main event loop
+ *
+ * Filesystem layout:
+ *   /flash/          — internal SPI flash (LittleFS, always mounted)
+ *   /flash/etc/      — system config: hostname, settings.json, passwd
+ *   /flash/home/picocalc — user home directory
+ *   /mnt/sd/         — SD card (FAT32, optional; music, video, packages)
  *
  ****************************************************************************/
 
@@ -24,7 +30,10 @@
 #include <unistd.h>
 #include <time.h>
 #include <string.h>
+#include <stdint.h>
 #include <syslog.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 #include <nuttx/clock.h>
 #include <nuttx/sched.h>
@@ -38,6 +47,9 @@
 #include "pcterm/launcher.h"
 #include "pcterm/package.h"
 #include "pcterm/boot_splash.h"
+#include "pcterm/login.h"
+#include "pcterm/user.h"
+#include "pcterm/vconsole.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -61,21 +73,229 @@ static bool g_serial_nsh_started = false;
  ****************************************************************************/
 
 /****************************************************************************
+ * Name: boot_play_startup_chime
+ *
+ * Description:
+ *   Play a short startup chime on the PWM audio driver. This is best-effort
+ *   and non-fatal: boot continues even if audio is unavailable.
+ *
+ ****************************************************************************/
+
+extern int rp23xx_audio_write(const int16_t *samples, size_t count);
+extern int rp23xx_audio_initialize(void);
+
+static void boot_play_startup_chime(void)
+{
+  struct chime_note_s
+  {
+    uint16_t hz;
+    uint16_t ms;
+    uint16_t amp;
+  };
+
+  static const struct chime_note_s notes[] =
+    {
+      { 523,  90, 5200 },
+      { 659,  90, 4700 },
+      { 784, 170, 4200 }
+    };
+
+  const uint32_t sample_rate = BOARD_AUDIO_PWM_FREQ;
+  int16_t pcm[256 * 2]; /* stereo interleaved */
+
+  int init_ret = rp23xx_audio_initialize();
+  if (init_ret < 0)
+    {
+      syslog(LOG_WARNING, "BOOT: startup chime init unavailable (%d)\n",
+             init_ret);
+      return;
+    }
+
+  for (unsigned int n = 0; n < sizeof(notes) / sizeof(notes[0]); n++)
+    {
+      uint32_t total = (sample_rate * notes[n].ms) / 1000;
+      uint32_t sent = 0;
+      uint32_t phase = 0;
+      uint32_t step = (uint32_t)(((uint64_t)notes[n].hz << 32) / sample_rate);
+      uint32_t ramp = total / 6;
+
+      if (ramp < 1)
+        {
+          ramp = 1;
+        }
+
+      while (sent < total)
+        {
+          uint32_t frames = total - sent;
+          if (frames > 256)
+            {
+              frames = 256;
+            }
+
+          for (uint32_t i = 0; i < frames; i++)
+            {
+              uint32_t pos = sent + i;
+              uint32_t gain = 256;
+
+              if (pos < ramp)
+                {
+                  gain = (pos * 256) / ramp;
+                }
+              else if (pos > total - ramp)
+                {
+                  gain = ((total - pos) * 256) / ramp;
+                }
+
+              int32_t sample = (phase & 0x80000000u)
+                               ? (int32_t)notes[n].amp
+                               : -(int32_t)notes[n].amp;
+
+              sample = (sample * (int32_t)gain) / 256;
+              pcm[i * 2] = (int16_t)sample;
+              pcm[i * 2 + 1] = (int16_t)sample;
+
+              phase += step;
+            }
+
+          size_t remain = frames * 2;
+          size_t offset = 0;
+          int retries = 0;
+
+          while (remain > 0)
+            {
+              int wrote = rp23xx_audio_write(&pcm[offset], remain);
+              if (wrote < 0)
+                {
+                  syslog(LOG_WARNING,
+                         "BOOT: startup chime unavailable (%d)\n", wrote);
+                  return;
+                }
+
+              if (wrote == 0)
+                {
+                  if (++retries > 50)
+                    {
+                      /* Buffer full and not draining — ISR may not be
+                       * running.  Bail out instead of blocking forever.
+                       */
+
+                      syslog(LOG_WARNING,
+                             "BOOT: chime buffer stall — skipping\n");
+                      return;
+                    }
+
+                  usleep(2000);
+                  continue;
+                }
+
+              retries = 0;
+              offset += (size_t)wrote;
+              remain -= (size_t)wrote;
+            }
+
+          sent += frames;
+        }
+
+      usleep(10000);
+    }
+}
+
+/****************************************************************************
  * Name: boot_mount_sd
+ *
+ * Description:
+ *   Mount the SD card at /mnt/sd (FAT32, optional).
+ *   Used for media files only (music, video, large app packages).
+ *   System config lives on internal flash (/flash/etc) and is unaffected
+ *   by SD card presence.
+ *
  ****************************************************************************/
 
 static int boot_mount_sd(void)
 {
+  struct stat st;
+
+  /* Check if bringup already mounted the SD card */
+
+  if (stat("/mnt/sd", &st) == 0 && S_ISDIR(st.st_mode))
+    {
+      /* Try to stat a sentinel — if the mount is live, opendir will work.
+       * Alternatively just try to list the directory.
+       */
+
+      DIR *d = opendir("/mnt/sd");
+      if (d != NULL)
+        {
+          closedir(d);
+          syslog(LOG_INFO, "BOOT: SD card already mounted at /mnt/sd\n");
+
+          /* Ensure expected SD media directories exist */
+
+          mkdir("/mnt/sd/music",  0777);
+          mkdir("/mnt/sd/video",  0777);
+          mkdir("/mnt/sd/apps",   0777);
+          return 0;
+        }
+    }
+
+  /* SD not yet mounted — try to mount it */
+
   extern int rp23xx_sdcard_mount(void);
   int ret = rp23xx_sdcard_mount();
 
   if (ret < 0)
     {
       syslog(LOG_WARNING,
-             "BOOT: SD card not available — running in limited mode\n");
+             "BOOT: SD card not available — media features disabled\n");
+    }
+  else
+    {
+      /* Ensure expected SD media directories exist */
+
+      mkdir("/mnt/sd/music",  0777);
+      mkdir("/mnt/sd/video",  0777);
+      mkdir("/mnt/sd/apps",   0777);
     }
 
   return ret;
+}
+
+/****************************************************************************
+ * Name: boot_init_flash_dirs
+ *
+ * Description:
+ *   Ensure the Linux-like directory tree on /flash is present.
+ *   Directories are already created by bringup after mounting LittleFS,
+ *   but we call this here as a safety net for paths config depends on.
+ *   Also writes /flash/etc/passwd on first boot.
+ *
+ ****************************************************************************/
+
+static void boot_init_flash_dirs(void)
+{
+  char path[80];
+  const char *username;
+
+  mkdir("/flash/etc",              0755);
+  mkdir("/flash/etc/appstate",     0755);
+  mkdir("/flash/etc/ssh",          0755);
+  mkdir("/flash/home",             0755);
+
+  /* Create home directory for the configured user (default: "picocalc") */
+
+  username = user_get_name();
+  snprintf(path, sizeof(path), "/flash/home/%s", username);
+  mkdir(path, 0755);
+  snprintf(path, sizeof(path), "/flash/home/%s/.config", username);
+  mkdir(path, 0755);
+
+  /* Write /flash/etc/passwd if it doesn't exist yet (first boot) */
+
+  struct stat st;
+  if (stat("/flash/etc/passwd", &st) < 0)
+    {
+      user_write_passwd();
+    }
 }
 
 /****************************************************************************
@@ -84,6 +304,7 @@ static int boot_mount_sd(void)
 
 extern int  lv_port_disp_init(void);
 extern void lv_port_indev_init(void);
+extern void lv_port_indev_keyboard_suspend(bool suspend);
 
 /****************************************************************************
  * Name: lv_nuttx_tick_cb
@@ -143,6 +364,7 @@ static void splash_pump(int pct, const char *msg)
 {
   boot_splash_set_progress(pct);
   boot_splash_set_status(msg);
+  dprintf(STDERR_FILENO, "BOOT: splash %d%% — %s\n", pct, msg);
   lv_timer_handler();
   usleep(SPLASH_STEP_DELAY_US);
 }
@@ -258,18 +480,43 @@ static void boot_start_serial_nsh(void)
 int main(int argc, FAR char *argv[])
 {
   int ret;
+  bool gui_ready = false;
 
-  printf("\n");
-  printf("========================================\n");
-  printf("     PicoCalc-Term  v0.1.0\n");
-  printf("     NuttX / LVGL / RP2350B\n");
-  printf("========================================\n");
-  printf("\n");
+  /* Use write() to bypass stdio buffering — guaranteed to hit UART */
 
-  /* --- Step 1: Mount SD card --- */
+  static const char banner[] =
+    "\n========================================\n"
+    "     PicoCalc-Term  v0.1.0\n"
+    "     NuttX / LVGL / RP2350B\n"
+    "========================================\n\n";
+
+  write(STDERR_FILENO, banner, sizeof(banner) - 1);
+
+  syslog(LOG_INFO, "BOOT: Entered pcterm_main\n");
+  dprintf(STDERR_FILENO, "BOOT: Entered pcterm_main\n");
+
+  /* Start serial shell first so UART recovery is always available,
+   * even if later GUI initialization fails.
+   */
+
+  boot_start_serial_nsh();
+  dprintf(STDERR_FILENO, "BOOT: NSH start attempted\n");
+
+  /* --- Step 0: Startup chime --- */
+
+  syslog(LOG_INFO, "BOOT: Step 0 - Startup chime\n");
+  boot_play_startup_chime();
+  dprintf(STDERR_FILENO, "BOOT: Chime done\n");
+
+  /* --- Step 1: Mount SD card (media only; non-fatal) --- */
 
   syslog(LOG_INFO, "BOOT: Step 1 — Mount SD card\n");
   boot_mount_sd();
+
+  /* --- Step 1b: Ensure flash directory structure is ready --- */
+
+  syslog(LOG_INFO, "BOOT: Step 1b — Init /flash directories\n");
+  boot_init_flash_dirs();
 
   /* --- Step 2: Load hostname --- */
 
@@ -289,17 +536,45 @@ int main(int argc, FAR char *argv[])
 
   /* --- Step 4: Initialize LVGL --- */
 
+  dprintf(STDERR_FILENO, "BOOT: Step 4 — LVGL init\n");
   syslog(LOG_INFO, "BOOT: Step 4 — Initialize LVGL\n");
   ret = boot_init_lvgl();
   if (ret < 0)
     {
-      syslog(LOG_EMERG, "BOOT: No display — halting.\n");
-      for (;;) usleep(1000000);
+      dprintf(STDERR_FILENO,
+              "BOOT: Display init failed (%d) — serial only\n", ret);
+      syslog(LOG_ERR, "BOOT: No display — switching to serial-only mode\n");
+    }
+  else
+    {
+      gui_ready = true;
+      dprintf(STDERR_FILENO, "BOOT: LVGL ready\n");
+    }
+
+  if (!gui_ready)
+    {
+      dprintf(STDERR_FILENO,
+              "BOOT: Serial-only mode (NSH on UART0)\n");
+
+      while (g_running)
+        {
+          usleep(20000);
+        }
+
+      syslog(LOG_INFO, "PicoCalc-Term shutting down\n");
+      return 0;
     }
 
   /* --- Step 5: Show boot splash --- */
 
-  syslog(LOG_INFO, "BOOT: Step 5 — Boot splash\n");
+  syslog(LOG_INFO, "BOOT: Step 5 — Boot splash\n");;
+
+  /* Suspend keyboard I2C polling during splash to prevent southbridge
+   * I2C reads (16 ms+ each at 10 kHz) from stalling lv_timer_handler.
+   */
+
+  lv_port_indev_keyboard_suspend(true);
+
   lv_obj_t *screen = lv_scr_act();
   boot_splash_show(screen);
   splash_pump(5, "Initializing...");
@@ -334,6 +609,12 @@ int main(int argc, FAR char *argv[])
   lv_obj_t *app_area = statusbar_get_app_area();
   launcher_set_arrange_mode(1);  /* alphabetical arrangement */
   launcher_init(app_area);
+
+  /* --- Step 9a: Initialize virtual consoles (tty0-3) --- */
+
+  syslog(LOG_INFO, "BOOT: Step 9a — Initialize virtual consoles\n");
+  vconsole_init(app_area);
+
   splash_pump(95, "Almost ready...");
 
   /* Final splash animation ramp */
@@ -345,6 +626,10 @@ int main(int argc, FAR char *argv[])
 
   boot_splash_hide();
 
+  /* Re-enable keyboard I2C polling now that splash is gone. */
+
+  lv_port_indev_keyboard_suspend(false);
+
   /* Force full-screen redraw so the launcher appears immediately.
    * The splash covered the entire screen; after deletion we must
    * invalidate the whole display so LVGL repaints the status bar
@@ -354,9 +639,30 @@ int main(int argc, FAR char *argv[])
   lv_obj_invalidate(lv_scr_act());
   lv_timer_handler();
 
-  /* Start serial shell for UART access */
+  /* --- Step 9b: Login screen (if enabled) --- */
 
-  boot_start_serial_nsh();
+  if (g_config.login_enabled && g_config.login_hash[0] != '\0')
+    {
+      syslog(LOG_INFO, "BOOT: Login required\n");
+      login_show_if_needed(app_area);
+    }
+
+  /* --- Apply extended clock profile from settings --- */
+
+  if (g_config.clock_profile != 2)  /* 2 = Standard 150 MHz (boot default) */
+    {
+      syslog(LOG_INFO, "BOOT: Applying clock profile %d\n",
+             g_config.clock_profile);
+      rp23xx_set_power_profile(g_config.clock_profile);
+    }
+
+  /* --- Apply startup mode (GUI or Console) --- */
+
+  if (g_config.startup_mode == 1)  /* Console startup */
+    {
+      syslog(LOG_INFO, "BOOT: Console startup mode — switching to tty1\n");
+      vconsole_switch(VCONSOLE_TTY1);
+    }
 
   syslog(LOG_INFO, "BOOT: PicoCalc-Term ready!\n");
 
@@ -366,13 +672,20 @@ int main(int argc, FAR char *argv[])
     {
       uint32_t time_till_next = lv_timer_handler();
 
-      /* Check for deferred app launch from the launcher */
+      /* Render active text console if its terminal grid is dirty */
 
-      const char *pending = launcher_get_pending_launch();
-      if (pending != NULL)
+      vconsole_render_if_dirty();
+
+      /* Check for deferred app launch from the launcher (GUI mode) */
+
+      if (!vconsole_is_text_active())
         {
-          app_framework_launch(pending);
-          launcher_clear_pending_launch();
+          const char *pending = launcher_get_pending_launch();
+          if (pending != NULL)
+            {
+              app_framework_launch(pending);
+              launcher_clear_pending_launch();
+            }
         }
 
       uint32_t sleep_ms = time_till_next < MAIN_LOOP_SLEEP_MS
@@ -380,6 +693,7 @@ int main(int argc, FAR char *argv[])
       usleep(sleep_ms * 1000);
     }
 
+  vconsole_shutdown();
   syslog(LOG_INFO, "PicoCalc-Term shutting down\n");
   return 0;
 }

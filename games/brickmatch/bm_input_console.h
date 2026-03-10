@@ -40,7 +40,7 @@ static struct termios g_new;
 
 /* Initialize g_new terminal I/O settings */
 
-void init_termios(int echo)
+static void init_termios(int echo)
 {
   tcgetattr(0, &g_old);                 /* grab old terminal i/o settings */
   g_new = g_old;                        /* use old settings as starting */
@@ -52,14 +52,14 @@ void init_termios(int echo)
 
 /* Restore g_old terminal i/o settings */
 
-void reset_termios(void)
+static void reset_termios(void)
 {
   tcsetattr(0, TCSANOW, &g_old);
 }
 
 /* Read 1 character - echo defines echo mode */
 
-char getch_(int echo)
+static char getch_(int echo)
 {
   char ch;
 
@@ -72,7 +72,7 @@ char getch_(int echo)
 
 /* Read 1 character without echo getch() function definition. */
 
-char getch(void)
+static char getch(void)
 {
   return getch_(0);
 }
@@ -81,7 +81,7 @@ char getch(void)
  * dev_input_init
  ****************************************************************************/
 
-int dev_input_init(FAR struct input_state_s *dev)
+static int dev_input_init(FAR struct input_state_s *dev)
 {
   init_termios(0);
 
@@ -92,7 +92,7 @@ int dev_input_init(FAR struct input_state_s *dev)
  * dev_read_input
  ****************************************************************************/
 
-int dev_read_input(FAR struct input_state_s *dev)
+static int dev_read_input(FAR struct input_state_s *dev)
 {
   char ch;
 

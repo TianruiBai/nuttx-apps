@@ -1,0 +1,26 @@
+#
+# apps/system/dmesg/Kconfig
+#
+
+config SYSTEM_DMESG
+	tristate "Kernel log viewer (dmesg)"
+	default n
+	---help---
+		Print kernel/system logs from the configured syslog RAM device.
+		The command tries /dev/kmsg first, then /dev/ramlog.
+
+if SYSTEM_DMESG
+
+config SYSTEM_DMESG_PROGNAME
+	string "Program name"
+	default "dmesg"
+
+config SYSTEM_DMESG_PRIORITY
+	int "dmesg task priority"
+	default 100
+
+config SYSTEM_DMESG_STACKSIZE
+	int "dmesg stack size"
+	default 2048
+
+endif

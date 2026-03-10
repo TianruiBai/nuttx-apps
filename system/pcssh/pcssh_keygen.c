@@ -333,7 +333,7 @@ static int keygen_ed25519(const char *privpath, const char *pubpath,
 
   uint8_t privder[256];
   word32  privder_len = sizeof(privder);
-  ret = wc_Ed25519KeyToDer(&key, privder, &privder_len);
+  ret = wc_Ed25519KeyToDer(&key, privder, privder_len);
   if (ret > 0)
     {
       privder_len = ret;

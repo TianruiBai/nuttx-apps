@@ -7,14 +7,24 @@
 
 include $(APPDIR)/Make.defs
 
-# wolfSSH source directory (user must place wolfssh sources here)
+# wolfSSH source directory and remote
 WOLFSSH_DIR = $(APPDIR)/crypto/wolfssh/wolfssh
+WOLFSSH_REMOTE ?= https://github.com/wolfSSL/wolfssh.git
 
 # When wolfSSH sources are present, build them.
 # Otherwise this is a no-op (the Kconfig symbol still exists so that
 # application code can #ifdef on CONFIG_CRYPTO_WOLFSSH).
 
 ifneq ($(CONFIG_CRYPTO_WOLFSSH),)
+
+wolfssh:
+	@if [ ! -f "$(WOLFSSH_DIR)/src/ssh.c" ]; then \
+		echo "Fetching wolfSSH sources..."; \
+		git clone "$(WOLFSSH_REMOTE)" "$(WOLFSSH_DIR)"; \
+	fi
+
+context:: wolfssh
+
 ifneq ($(wildcard $(WOLFSSH_DIR)/src/ssh.c),)
 
 CFLAGS += -I$(WOLFSSH_DIR)
@@ -38,5 +48,8 @@ endif
 
 endif # wolfssh sources present
 endif # CONFIG_CRYPTO_WOLFSSH
+
+distclean::
+	$(call DELDIR, $(WOLFSSH_DIR))
 
 include $(APPDIR)/Application.mk

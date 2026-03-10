@@ -1,0 +1,1 @@
+{ "brick", 100, 2048, brick_main },

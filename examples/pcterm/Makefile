@@ -89,6 +89,9 @@ CSRCS += terminal_widget.c
 CSRCS += app_state.c
 CSRCS += psram_stubs.c
 CSRCS += link_stubs.c
+CSRCS += user.c
+CSRCS += login.c
+CSRCS += vconsole.c
 
 # --- setjmp / longjmp (ARM assembly) ---
 
@@ -105,6 +108,7 @@ CSRCS += settings_storage.c
 CSRCS += settings_system.c
 CSRCS += settings_packages.c
 CSRCS += settings_power.c
+CSRCS += settings_users.c
 
 # --- Text Editor (apps/pcedit/) — 8 files ---
 

@@ -121,12 +121,12 @@ static const char g_default_fbdev[] =
 
 /* The edge of the board is invisible to user */
 
-int board[ROW][COL] =
+static int board[ROW][COL] =
 {
   0
 };
 
-int prev_board[ROW][COL] =
+static int prev_board[ROW][COL] =
 {
   0
 };

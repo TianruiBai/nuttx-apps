@@ -514,7 +514,7 @@ static int ssh_send_data(struct ssh_session_s *s,
 #ifdef CONFIG_CRYPTO_WOLFSSH
   if (s->ssh != NULL)
     {
-      return wolfSSH_stream_send(s->ssh, (const uint8_t *)data,
+      return wolfSSH_stream_send(s->ssh, (uint8_t *)data,
                                  (word32)len);
     }
 #endif

@@ -1,0 +1,1 @@
+int lua_main(int argc, char *argv[]);

@@ -1,0 +1,1 @@
+{ "dmesg", 100, 2048, dmesg_main },

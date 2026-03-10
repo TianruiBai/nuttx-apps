@@ -1,0 +1,1 @@
+{ "hostname", SCHED_PRIORITY_DEFAULT, 2048, hostname_main },

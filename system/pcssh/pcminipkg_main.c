@@ -234,7 +234,6 @@ static int cmd_search(const char *query)
       printf("  %d package(s) found.\n", found);
     }
 
-  free(catalog.entries);
   return EXIT_SUCCESS;
 }
 
@@ -263,7 +262,6 @@ static int cmd_update(void)
   if (n <= 0)
     {
       printf("No packages installed.\n");
-      free(catalog.entries);
       return EXIT_SUCCESS;
     }
 
@@ -299,7 +297,6 @@ static int cmd_update(void)
              updates);
     }
 
-  free(catalog.entries);
   return EXIT_SUCCESS;
 }
 
@@ -335,12 +332,10 @@ static int cmd_upgrade(const char *name)
   if (url == NULL)
     {
       fprintf(stderr, "minipkg: package '%s' not found in catalog\n", name);
-      free(catalog.entries);
       return EXIT_FAILURE;
     }
 
   int ret = pcpkg_download_and_install(url, name);
-  free(catalog.entries);
   if (ret < 0)
     {
       fprintf(stderr, "minipkg: upgrade failed (%d)\n", ret);
@@ -417,7 +412,6 @@ static int cmd_catalog(void)
              catalog.entries[i].description);
     }
 
-  free(catalog.entries);
   return EXIT_SUCCESS;
 }
 
@@ -445,7 +439,6 @@ static int cmd_refresh(void)
     }
 
   printf("Catalog refreshed: %d packages available.\n", catalog.count);
-  free(catalog.entries);
   return EXIT_SUCCESS;
 }
 
