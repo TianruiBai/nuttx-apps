@@ -154,11 +154,11 @@ endif
 
 ifeq ($(CONFIG_WOLFSSL_APP_CLIENT_SERVER),y)
 wolfssl:
-	git clone git@github.com:wolfSSL/wolfssl.git $(WOLFSSL_UNPACKNAME)
-	git clone git@github.com:wolfSSL/wolfssl-examples.git $(WOLFSSL_EXAMPLESNAME)
+	git clone https://github.com/wolfSSL/wolfssl.git $(WOLFSSL_UNPACKNAME)
+	git clone https://github.com/wolfSSL/wolfssl-examples.git $(WOLFSSL_EXAMPLESNAME)
 else
 wolfssl:
-	git clone git@github.com:wolfSSL/wolfssl.git $(WOLFSSL_UNPACKNAME)
+	git clone https://github.com/wolfSSL/wolfssl.git $(WOLFSSL_UNPACKNAME)
 endif
 
 context:: wolfssl
@@ -168,7 +168,7 @@ distclean::
 	$(call DELDIR, $(WOLFSSL_UNPACKNAME))
 	$(call DELDIR, $(WOLFSSL_EXAMPLESNAME))
 else
-distclean:
+distclean::
 	$(call DELDIR, $(WOLFSSL_UNPACKNAME))
 endif
 

@@ -1,0 +1,43 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config CRYPTO_WOLFSSH
+	bool "wolfSSH - SSH library"
+	default n
+	depends on CRYPTO_WOLFSSL
+	---help---
+		wolfSSH is an embedded SSH library by wolfSSL Inc.
+
+		It provides SSH 2.0 client/server capabilities including:
+		  - SSH channel management
+		  - SCP file transfer
+		  - SFTP file transfer
+		  - Key exchange and authentication
+		  - Ed25519 / RSA host keys
+
+		wolfSSH depends on wolfCrypt (part of wolfSSL) for
+		cryptographic primitives.
+
+		To use wolfSSH, you must obtain the wolfSSH source code
+		from https://github.com/wolfSSL/wolfssh and place it in
+		nuttx-apps/crypto/wolfssh/wolfssh/
+
+		Apache-2.0 licensed.
+
+if CRYPTO_WOLFSSH
+
+config CRYPTO_WOLFSSH_SCP
+	bool "Enable SCP support"
+	default y
+	---help---
+		Enable SCP (Secure Copy Protocol) support in wolfSSH.
+
+config CRYPTO_WOLFSSH_SFTP
+	bool "Enable SFTP support"
+	default y
+	---help---
+		Enable SFTP (SSH File Transfer Protocol) support in wolfSSH.
+
+endif # CRYPTO_WOLFSSH

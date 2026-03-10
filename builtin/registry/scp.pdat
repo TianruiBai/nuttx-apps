@@ -1,0 +1,1 @@
+int scp_main(int argc, char *argv[]);

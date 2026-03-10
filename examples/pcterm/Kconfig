@@ -1,0 +1,26 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config EXAMPLES_PCTERM
+	tristate "PicoCalc Terminal OS"
+	default n
+	---help---
+		Enable the PicoCalc-Term OS entry point (pcterm_main)
+
+if EXAMPLES_PCTERM
+
+config EXAMPLES_PCTERM_PROGNAME
+	string "Program name"
+	default "pcterm"
+
+config EXAMPLES_PCTERM_PRIORITY
+	int "pcterm task priority"
+	default 100
+
+config EXAMPLES_PCTERM_STACKSIZE
+	int "pcterm stack size"
+	default 32768
+
+endif

@@ -1,0 +1,233 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config SYSTEM_PCSSH
+	tristate "PicoCalc SSH client (CLI)"
+	default n
+	depends on NET_TCP
+	---help---
+		Simple SSH/telnet client for NuttX Shell.
+		Connects to a remote host over TCP and provides an
+		interactive terminal session.  Uses wolfSSH for
+		encryption when CONFIG_CRYPTO_WOLFSSH is enabled,
+		otherwise falls back to raw TCP (like telnet).
+
+		Usage:  ssh user@host [-p port]
+
+if SYSTEM_PCSSH
+
+config SYSTEM_PCSSH_PROGNAME
+	string "Program name"
+	default "ssh"
+
+config SYSTEM_PCSSH_PRIORITY
+	int "ssh task priority"
+	default 100
+
+config SYSTEM_PCSSH_STACKSIZE
+	int "ssh stack size"
+	default 8192
+
+endif # SYSTEM_PCSSH
+
+config SYSTEM_PCSCP
+	tristate "PicoCalc SCP client (CLI)"
+	default n
+	depends on NET_TCP
+	---help---
+		Simple file copy over SSH/TCP for NuttX Shell.
+		Uses wolfSSH SCP when available, otherwise falls
+		back to a raw TCP file transfer.
+
+		Usage:  scp local_file user@host:/remote/path
+		        scp user@host:/remote/path local_file
+
+if SYSTEM_PCSCP
+
+config SYSTEM_PCSCP_PROGNAME
+	string "Program name"
+	default "scp"
+
+config SYSTEM_PCSCP_PRIORITY
+	int "scp task priority"
+	default 100
+
+config SYSTEM_PCSCP_STACKSIZE
+	int "scp stack size"
+	default 8192
+
+endif # SYSTEM_PCSCP
+config SYSTEM_PCSSH_KEYGEN
+	tristate "PicoCalc SSH key generator"
+	default n
+	---help---
+		SSH key generator for PicoCalc.
+		Generates Ed25519 or RSA key pairs using wolfCrypt
+		(when CONFIG_CRYPTO_WOLFSSL is enabled).
+		Saves keys to internal flash (/data/.ssh/) or SD card.
+		Displays the public key as a QR code for easy transfer.
+
+		Usage:  ssh-keygen [-t ed25519|rsa] [-b bits] [-f file] [-q]
+
+if SYSTEM_PCSSH_KEYGEN
+
+config SYSTEM_PCSSH_KEYGEN_PROGNAME
+	string "Program name"
+	default "sshkeygen"
+
+config SYSTEM_PCSSH_KEYGEN_PRIORITY
+	int "ssh-keygen task priority"
+	default 100
+
+config SYSTEM_PCSSH_KEYGEN_STACKSIZE
+	int "ssh-keygen stack size"
+	default 16384
+
+endif # SYSTEM_PCSSH_KEYGEN
+
+config SYSTEM_PCTIME
+	tristate "PicoCalc time command"
+	default n
+	---help---
+		Time print/set command.
+		Usage:
+		  time
+		  time set YYYY-MM-DD HH:MM:SS
+
+if SYSTEM_PCTIME
+
+config SYSTEM_PCTIME_PROGNAME
+	string "Program name"
+	default "time"
+
+config SYSTEM_PCTIME_PRIORITY
+	int "time task priority"
+	default 100
+
+config SYSTEM_PCTIME_STACKSIZE
+	int "time stack size"
+	default 4096
+
+endif # SYSTEM_PCTIME
+
+config SYSTEM_PCNTP
+	tristate "PicoCalc ntp command"
+	default n
+	depends on NET_UDP
+	select NETUTILS_NTPCLIENT
+	---help---
+		NTP helper command.
+		Usage:
+		  ntp start [server]
+		  ntp stop
+		  ntp status
+		  ntp sync [server]
+
+if SYSTEM_PCNTP
+
+config SYSTEM_PCNTP_PROGNAME
+	string "Program name"
+	default "ntp"
+
+config SYSTEM_PCNTP_PRIORITY
+	int "ntp task priority"
+	default 100
+
+config SYSTEM_PCNTP_STACKSIZE
+	int "ntp stack size"
+	default 4096
+
+endif # SYSTEM_PCNTP
+
+config SYSTEM_PCMINIPKG
+	tristate "PicoCalc minipkg package manager"
+	default n
+	---help---
+		Simple package manager CLI for PicoCalc-Term.
+		Installs, removes, searches, and updates third-party
+		app packages (.pcpkg format) from SD card or network.
+
+		Usage:
+		  minipkg list
+		  minipkg install <file.pcpkg>
+		  minipkg remove <name>
+		  minipkg search <query>
+		  minipkg update
+		  minipkg scan
+
+if SYSTEM_PCMINIPKG
+
+config SYSTEM_PCMINIPKG_PROGNAME
+	string "Program name"
+	default "minipkg"
+
+config SYSTEM_PCMINIPKG_PRIORITY
+	int "minipkg task priority"
+	default 100
+
+config SYSTEM_PCMINIPKG_STACKSIZE
+	int "minipkg stack size"
+	default 8192
+
+endif # SYSTEM_PCMINIPKG
+
+config SYSTEM_PCWIFI
+	tristate "PicoCalc Wi-Fi CLI command"
+	default n
+	---help---
+		Wi-Fi management CLI for NuttX Shell.
+		Scan, connect, disconnect, and manage wireless networks.
+		Uses CYW43 Wi-Fi on RP2350 PicoCalc hardware.
+
+		Usage:
+		  wifi status
+		  wifi scan
+		  wifi connect <ssid> [password]
+		  wifi disconnect
+
+if SYSTEM_PCWIFI
+
+config SYSTEM_PCWIFI_PROGNAME
+	string "Program name"
+	default "wifi"
+
+config SYSTEM_PCWIFI_PRIORITY
+	int "wifi task priority"
+	default 100
+
+config SYSTEM_PCWIFI_STACKSIZE
+	int "wifi stack size"
+	default 8192
+
+endif # SYSTEM_PCWIFI
+
+config SYSTEM_PCBT
+	tristate "PicoCalc Bluetooth CLI command"
+	default n
+	---help---
+		Bluetooth management CLI for NuttX Shell.
+		Enable, scan, pair, and manage Bluetooth devices.
+		Uses CYW43 Bluetooth on RP2350 PicoCalc hardware.
+
+		Usage:
+		  bt status
+		  bt scan
+		  bt pair <addr>
+
+if SYSTEM_PCBT
+
+config SYSTEM_PCBT_PROGNAME
+	string "Program name"
+	default "bt"
+
+config SYSTEM_PCBT_PRIORITY
+	int "bt task priority"
+	default 100
+
+config SYSTEM_PCBT_STACKSIZE
+	int "bt stack size"
+	default 4096
+
+endif # SYSTEM_PCBT

@@ -1,0 +1,57 @@
+#
+# PicoCalc time and NTP commands
+#
+
+config SYSTEM_PCTIME
+	tristate "PicoCalc time command"
+	default n
+	---help---
+		Enable the PicoCalc time command.
+		Usage:
+		  time
+		  time set YYYY-MM-DD HH:MM:SS
+
+if SYSTEM_PCTIME
+
+config SYSTEM_PCTIME_PROGNAME
+	string "Program name"
+	default "time"
+
+config SYSTEM_PCTIME_PRIORITY
+	int "time task priority"
+	default 100
+
+config SYSTEM_PCTIME_STACKSIZE
+	int "time stack size"
+	default 4096
+
+endif # SYSTEM_PCTIME
+
+config SYSTEM_PCNTP
+	tristate "PicoCalc ntp command"
+	default n
+	depends on NET_UDP
+	select NETUTILS_NTPCLIENT
+	---help---
+		Enable the PicoCalc ntp command.
+		Usage:
+		  ntp start [server]
+		  ntp stop
+		  ntp status
+		  ntp sync [server]
+
+if SYSTEM_PCNTP
+
+config SYSTEM_PCNTP_PROGNAME
+	string "Program name"
+	default "ntp"
+
+config SYSTEM_PCNTP_PRIORITY
+	int "ntp task priority"
+	default 100
+
+config SYSTEM_PCNTP_STACKSIZE
+	int "ntp stack size"
+	default 4096
+
+endif # SYSTEM_PCNTP

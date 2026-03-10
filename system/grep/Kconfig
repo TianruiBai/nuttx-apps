@@ -1,0 +1,20 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config SYSTEM_GREP
+	tristate "'grep' command"
+	default n
+	---help---
+		A minimal grep utility for searching text patterns in files
+		or standard input.  Supports -i (case-insensitive), -n (line
+		numbers), -v (invert match), -c (count), and -r (recursive).
+
+if SYSTEM_GREP
+
+config SYSTEM_GREP_STACKSIZE
+	int "grep stack size"
+	default DEFAULT_TASK_STACKSIZE
+
+endif

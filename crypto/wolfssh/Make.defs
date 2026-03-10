@@ -1,0 +1,3 @@
+ifneq ($(CONFIG_CRYPTO_WOLFSSH),)
+CONFIGURED_APPS += $(APPDIR)/crypto/wolfssh
+endif

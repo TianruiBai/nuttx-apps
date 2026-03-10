@@ -1,0 +1,130 @@
+############################################################################
+# apps/system/pcssh/Makefile
+#
+# PicoCalc CLI SSH/SCP/time/ntp commands for NuttX Shell
+#
+############################################################################
+
+include $(APPDIR)/Make.defs
+
+# Include path for PicoCalc headers (needed by minipkg for package.h)
+PCTERM_ROOT = $(APPDIR)/..
+CFLAGS += ${INCDIR_PREFIX}$(PCTERM_ROOT)/pcterm/include
+
+# wolfSSH / wolfSSL headers (needed by SSH/SCP commands)
+ifneq ($(CONFIG_CRYPTO_WOLFSSH),)
+CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/crypto/wolfssh/wolfssh
+endif
+ifneq ($(CONFIG_CRYPTO_WOLFSSL),)
+CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/crypto/wolfssl/wolfssl
+CFLAGS += -DWOLFSSL_USER_SETTINGS
+endif
+
+# SSH command
+
+ifneq ($(CONFIG_SYSTEM_PCSSH),)
+PROGNAME  += $(CONFIG_SYSTEM_PCSSH_PROGNAME)
+PRIORITY  += $(CONFIG_SYSTEM_PCSSH_PRIORITY)
+STACKSIZE += $(CONFIG_SYSTEM_PCSSH_STACKSIZE)
+MODULE    += $(CONFIG_SYSTEM_PCSSH)
+endif
+
+# SCP command
+
+ifneq ($(CONFIG_SYSTEM_PCSCP),)
+PROGNAME  += $(CONFIG_SYSTEM_PCSCP_PROGNAME)
+PRIORITY  += $(CONFIG_SYSTEM_PCSCP_PRIORITY)
+STACKSIZE += $(CONFIG_SYSTEM_PCSCP_STACKSIZE)
+MODULE    += $(CONFIG_SYSTEM_PCSCP)
+endif
+
+# SSH key generator
+
+ifneq ($(CONFIG_SYSTEM_PCSSH_KEYGEN),)
+PROGNAME  += $(CONFIG_SYSTEM_PCSSH_KEYGEN_PROGNAME)
+PRIORITY  += $(CONFIG_SYSTEM_PCSSH_KEYGEN_PRIORITY)
+STACKSIZE += $(CONFIG_SYSTEM_PCSSH_KEYGEN_STACKSIZE)
+MODULE    += $(CONFIG_SYSTEM_PCSSH_KEYGEN)
+endif
+
+# time command
+
+ifneq ($(CONFIG_SYSTEM_PCTIME),)
+PROGNAME  += $(CONFIG_SYSTEM_PCTIME_PROGNAME)
+PRIORITY  += $(CONFIG_SYSTEM_PCTIME_PRIORITY)
+STACKSIZE += $(CONFIG_SYSTEM_PCTIME_STACKSIZE)
+MODULE    += $(CONFIG_SYSTEM_PCTIME)
+endif
+
+# ntp command
+
+ifneq ($(CONFIG_SYSTEM_PCNTP),)
+PROGNAME  += $(CONFIG_SYSTEM_PCNTP_PROGNAME)
+PRIORITY  += $(CONFIG_SYSTEM_PCNTP_PRIORITY)
+STACKSIZE += $(CONFIG_SYSTEM_PCNTP_STACKSIZE)
+MODULE    += $(CONFIG_SYSTEM_PCNTP)
+endif
+
+# Source files
+
+ifneq ($(CONFIG_SYSTEM_PCSSH),)
+MAINSRC += pcssh_cli.c
+endif
+
+ifneq ($(CONFIG_SYSTEM_PCSCP),)
+MAINSRC += pcscp_cli.c
+endif
+
+ifneq ($(CONFIG_SYSTEM_PCSSH_KEYGEN),)
+MAINSRC += pcssh_keygen.c
+CSRCS   += qrencode.c
+endif
+
+ifneq ($(CONFIG_SYSTEM_PCTIME),)
+MAINSRC += pctime_main.c
+endif
+
+ifneq ($(CONFIG_SYSTEM_PCNTP),)
+MAINSRC += pcntp_main.c
+endif
+
+# minipkg command
+
+ifneq ($(CONFIG_SYSTEM_PCMINIPKG),)
+PROGNAME  += $(CONFIG_SYSTEM_PCMINIPKG_PROGNAME)
+PRIORITY  += $(CONFIG_SYSTEM_PCMINIPKG_PRIORITY)
+STACKSIZE += $(CONFIG_SYSTEM_PCMINIPKG_STACKSIZE)
+MODULE    += $(CONFIG_SYSTEM_PCMINIPKG)
+endif
+
+ifneq ($(CONFIG_SYSTEM_PCMINIPKG),)
+MAINSRC += pcminipkg_main.c
+endif
+
+# wifi command
+
+ifneq ($(CONFIG_SYSTEM_PCWIFI),)
+PROGNAME  += $(CONFIG_SYSTEM_PCWIFI_PROGNAME)
+PRIORITY  += $(CONFIG_SYSTEM_PCWIFI_PRIORITY)
+STACKSIZE += $(CONFIG_SYSTEM_PCWIFI_STACKSIZE)
+MODULE    += $(CONFIG_SYSTEM_PCWIFI)
+endif
+
+ifneq ($(CONFIG_SYSTEM_PCWIFI),)
+MAINSRC += pcwifi_main.c
+endif
+
+# bt command
+
+ifneq ($(CONFIG_SYSTEM_PCBT),)
+PROGNAME  += $(CONFIG_SYSTEM_PCBT_PROGNAME)
+PRIORITY  += $(CONFIG_SYSTEM_PCBT_PRIORITY)
+STACKSIZE += $(CONFIG_SYSTEM_PCBT_STACKSIZE)
+MODULE    += $(CONFIG_SYSTEM_PCBT)
+endif
+
+ifneq ($(CONFIG_SYSTEM_PCBT),)
+MAINSRC += pcbt_main.c
+endif
+
+include $(APPDIR)/Application.mk

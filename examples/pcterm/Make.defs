@@ -1,0 +1,7 @@
+############################################################################
+# apps/examples/pcterm/Make.defs
+############################################################################
+
+ifneq ($(CONFIG_EXAMPLES_PCTERM),)
+CONFIGURED_APPS += $(APPDIR)/examples/pcterm
+endif

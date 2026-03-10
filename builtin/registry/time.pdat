@@ -1,0 +1,1 @@
+int time_main(int argc, char *argv[]);

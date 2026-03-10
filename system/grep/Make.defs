@@ -1,0 +1,3 @@
+ifneq ($(CONFIG_SYSTEM_GREP),)
+CONFIGURED_APPS += $(APPDIR)/system/grep
+endif

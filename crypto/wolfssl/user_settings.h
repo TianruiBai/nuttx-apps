@@ -40,6 +40,9 @@
 #undef  RSA_LOW_MEM
 #define NO_MD4
 #define NO_DSA
+#define HAVE_ED25519
+#define HAVE_CURVE25519
+#define WOLFSSL_KEY_GEN
 
 /* RNG */
 #define WOLFSSL_GENSEED_FORTEST
